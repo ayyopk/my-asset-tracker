@@ -1,7 +1,7 @@
-const CACHE = "asset-tracker-v3-luxe";
+const CACHE = "asset-tracker-v3-1-luxe";
 const ASSETS = [
-  "./", "./index.html", "./app.css", "./app.js", "./manifest.webmanifest",
-  "./vendor/xlsx.full.min.js", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
+  "./", "./index.html", "./app.css?v=3.1", "./app.js?v=3.1", "./manifest.webmanifest?v=3.1",
+  "./vendor/xlsx.full.min.js?v=3.1", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
 ];
 
 self.addEventListener("install", event => {
