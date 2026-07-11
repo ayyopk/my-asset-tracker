@@ -7,6 +7,7 @@
   const DATA_KEY = "main";
   const VAULT_KEY = "vault";
   const KDF_ITERATIONS = 310000;
+  const APP_VERSION = "3.3.0";
 
   const categories = {
     taiwan: { name: "台灣資產", short: "台灣", icon: "taiwan", tone: "c1" },
@@ -219,6 +220,7 @@
     const creating = mode === "create";
     app.innerHTML = `<main class="auth-screen">
       <section class="auth-card">
+        <span class="version-badge" aria-label="應用程式版本">v${APP_VERSION}</span>
         <div class="auth-mark">${icon("wallet")}</div>
         <h1>${creating ? "設定開啟密碼" : "我的資產"}</h1>
         <p>${creating ? "密碼會用來加密手機內的資產資料與完整備份。" : "請輸入密碼以解鎖資產資料。"}</p>
@@ -420,10 +422,14 @@
     const snapshots = [...data.snapshots].sort((a, b) => a.date.localeCompare(b.date));
     const latest = snapshots[snapshots.length - 1];
     const first = snapshots[0];
-    const change = latest && first && grandTotal(first) ? (grandTotal(latest) / grandTotal(first) - 1) * 100 : 0;
+    const changeAmount = latest && first ? grandTotal(latest) - grandTotal(first) : 0;
+    const change = latest && first && grandTotal(first) ? changeAmount / grandTotal(first) * 100 : 0;
+    const changeSign = changeAmount > 0 ? "+" : changeAmount < 0 ? "−" : "";
+    const changeAmountText = Math.abs(Math.round(changeAmount)).toLocaleString("zh-TW");
+    const changePercentText = `${change > 0 ? "+" : change < 0 ? "−" : ""}${Math.abs(change).toFixed(1)}%`;
     app.innerHTML = `${topbar("資產趨勢", snapshots.length ? `共 ${snapshots.length} 筆歷史紀錄` : "尚無歷史紀錄", false)}
       <main>${snapshots.length ? `<section class="chart-panel"><div class="chart-title">總資產變化</div><div class="chart-big privacy-value ${privacyHidden ? "is-hidden" : ""}">${formatTwd(grandTotal(latest))}</div>${historyChart(snapshots)}
-      <div class="delta ${change >= 0 ? "positive" : "negative"}">自第一筆紀錄 ${change >= 0 ? "+" : ""}${change.toFixed(1)}%</div></section>
+      <div class="delta privacy-value ${privacyHidden ? "is-hidden" : ""} ${changeAmount >= 0 ? "positive" : "negative"}">自第一筆紀錄 ${changeSign}${changeAmountText}（${changePercentText}）</div></section>
       <div class="section-head"><h2>每次紀錄</h2><span class="section-note">最新在前</span></div>
       <section class="settings-group history-list">${[...snapshots].reverse().map(snapshot => `<div class="history-row"><div><div class="history-date">${formatDate(snapshot.date)}</div><div class="history-rate">日圓匯率 ${Number(snapshot.jpyRate).toFixed(3)}</div></div><div class="history-total privacy-value ${privacyHidden ? "is-hidden" : ""}">${formatTwd(grandTotal(snapshot))}</div></div>`).join("")}</section>` : '<div class="empty"><strong>還沒有歷史紀錄</strong>完成第一次更新後，這裡會出現資產趨勢。</div>'}</main>${nav("history")}`;
     bindCommon();
