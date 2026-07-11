@@ -1,4 +1,4 @@
-const CACHE = "asset-tracker-v2-secure";
+const CACHE = "asset-tracker-v3-luxe";
 const ASSETS = [
   "./", "./index.html", "./app.css", "./app.js", "./manifest.webmanifest",
   "./vendor/xlsx.full.min.js", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"

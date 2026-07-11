@@ -697,7 +697,7 @@
       document.addEventListener("visibilitychange", () => {
         if (!backgroundLockEnabled) { backgroundedAt = 0; return; }
         if (document.hidden) backgroundedAt = Date.now();
-        else if (vaultCryptoKey && backgroundedAt && Date.now() - backgroundedAt > 15000) lockApp();
+        else if (vaultCryptoKey && backgroundedAt && Date.now() - backgroundedAt > 30000) lockApp();
       });
       window.addEventListener("pageshow", event => { if (event.persisted && vaultCryptoKey) lockApp(); });
       const vault = await dbGet(VAULT_KEY);
