@@ -7,7 +7,7 @@
   const DATA_KEY = "main";
   const VAULT_KEY = "vault";
   const KDF_ITERATIONS = 310000;
-  const APP_VERSION = "3.3.0";
+  const APP_VERSION = "3.4.0";
 
   const categories = {
     taiwan: { name: "台灣資產", short: "台灣", icon: "taiwan", tone: "c1" },
@@ -213,6 +213,10 @@
     normalized.settings.baseCurrency ||= "TWD";
     normalized.settings.lastBackupAt ||= null;
     if (typeof normalized.settings.backupAfterSave !== "boolean") normalized.settings.backupAfterSave = true;
+    // 富邦外幣仍在台灣帳戶中，因此歸入台灣資產；既有歷史金額不會改變。
+    normalized.accounts.forEach(account => {
+      if (account.id === "jp-fubon" || account.name?.trim() === "富邦外幣") account.category = "taiwan";
+    });
     return normalized;
   }
 
@@ -290,7 +294,7 @@
     return `<header class="topbar">
       ${back ? `<button class="icon-btn" data-back aria-label="返回">${icon("back")}</button>` : ""}
       <div class="topbar-title" style="flex:1"><h1>${escapeHTML(title)}</h1>${subtitle ? `<p class="eyebrow">${escapeHTML(subtitle)}</p>` : ""}</div>
-      ${!back ? `<button class="icon-btn" data-privacy aria-label="${privacyHidden ? "顯示金額" : "隱藏金額"}">${icon(privacyHidden ? "eyeoff" : "eye")}</button>` : ""}
+      <button class="icon-btn" data-privacy aria-label="${privacyHidden ? "顯示金額" : "隱藏金額"}">${icon(privacyHidden ? "eyeoff" : "eye")}</button>
     </header>`;
   }
 
@@ -315,7 +319,7 @@
         <section class="hero">
           <div class="hero-head">
             <div><div class="hero-label">總資產</div><div class="hero-value privacy-value ${privacyHidden ? "is-hidden" : ""}">${formatTwd(total)}</div>
-              <div class="delta ${delta == null || delta >= 0 ? "positive" : "negative"}">${delta == null ? "第一筆資產紀錄" : `較上次 ${delta >= 0 ? "+" : "−"}${formatTwd(Math.abs(delta))}`}</div>
+              <div class="delta privacy-value ${privacyHidden ? "is-hidden" : ""} ${delta == null || delta >= 0 ? "positive" : "negative"}">${delta == null ? "第一筆資產紀錄" : `較上次 ${delta >= 0 ? "+" : "−"}${formatTwd(Math.abs(delta))}`}</div>
             </div>
             <svg class="spark" viewBox="0 0 72 46" role="img" aria-label="資產趨勢圖"><path d="M3 38 16 28 27 32 39 18 50 22 68 5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M61 5h7v7" fill="none" stroke="currentColor" stroke-width="3"/></svg>
           </div>
@@ -337,7 +341,7 @@
       const converted = accountTwd(account, snapshot);
       return `<button class="list-row" data-update-category="${key}">
         <span class="row-icon ${category.tone}">${icon(account.currency === "JPY" ? "bank" : category.icon)}</span>
-        <span class="row-main"><span class="row-title">${escapeHTML(account.name)}</span><span class="row-sub">${account.currency}${account.currency === "JPY" ? ` · 約 ${formatTwd(converted)}` : ""}</span></span>
+        <span class="row-main"><span class="row-title">${escapeHTML(account.name)}</span><span class="row-sub">${account.currency}${account.currency === "JPY" ? ` · 約 <span class="privacy-value ${privacyHidden ? "is-hidden" : ""}">${formatTwd(converted)}</span>` : ""}</span></span>
         <span class="row-value privacy-value ${privacyHidden ? "is-hidden" : ""}">${formatNative(native, account.currency)}</span><span class="chev">›</span>
       </button>`;
     }).join("");
@@ -361,9 +365,9 @@
 
     function accountInput(account) {
       const value = Number(snapshot?.values?.[account.id] || 0);
-      const converted = account.currency === "JPY" ? `<div class="converted" data-converted="${account.id}">約 ${formatTwd(value * Number(snapshot?.jpyRate || .21))}</div>` : "";
-      return `<div class="account-input"><div class="input-top"><span class="input-name">${escapeHTML(account.name)}</span><span class="currency-pill">${account.currency}</span></div>
-        <div class="money-input-wrap"><span class="money-prefix">${account.currency === "JPY" ? "¥" : "NT$"}</span><input class="money-input" inputmode="numeric" autocomplete="off" data-account-input="${account.id}" data-currency="${account.currency}" value="${Math.round(value).toLocaleString("en-US")}" aria-label="${escapeHTML(account.name)}金額"></div>${converted}</div>`;
+      const converted = account.currency === "JPY" ? `<div class="converted privacy-value ${privacyHidden ? "is-hidden" : ""}" data-converted="${account.id}">約 ${formatTwd(value * Number(snapshot?.jpyRate || .21))}</div>` : "";
+      return `<div class="account-input" data-account-card="${account.id}"><div class="input-top"><span class="input-name">${escapeHTML(account.name)}</span><span class="currency-pill">${account.currency}</span></div>
+        <div class="money-input-wrap"><span class="money-prefix">${account.currency === "JPY" ? "¥" : "NT$"}</span><input class="money-input privacy-value ${privacyHidden ? "is-hidden" : ""}" inputmode="numeric" autocomplete="off" data-account-input="${account.id}" data-currency="${account.currency}" data-original-value="${Math.round(value)}" value="${Math.round(value).toLocaleString("en-US")}" aria-label="${escapeHTML(account.name)}金額"></div>${converted}</div>`;
     }
 
     app.innerHTML = `${topbar(filterCategory ? `更新${categories[filterCategory].name}` : "本月資產更新", "輸入完成後，按下方按鈕保存新紀錄", !!filterCategory)}
@@ -374,7 +378,7 @@
       <div class="button-grid"><button class="primary-btn" id="saveSnapshot">${icon("save")}儲存本次紀錄</button></div></main>${nav("update")}`;
     bindCommon();
     bindMoneyInputs();
-    $("#jpyRate").addEventListener("input", updateConversions);
+    $("#jpyRate").addEventListener("input", () => { updateConversions(); markRateChanged(); });
     $("#saveSnapshot").addEventListener("click", () => saveSnapshot(filterCategory));
   }
 
@@ -382,8 +386,19 @@
     document.querySelectorAll("[data-account-input]").forEach(input => {
       input.addEventListener("focus", () => { input.value = input.value.replace(/,/g, ""); input.select(); });
       input.addEventListener("blur", () => { const value = parseMoney(input.value); input.value = Math.round(value).toLocaleString("en-US"); updateConversions(); });
-      input.addEventListener("input", updateConversions);
+      input.addEventListener("input", () => { updateConversions(); markInputChanged(input); });
     });
+  }
+
+  function markInputChanged(input) {
+    const changed = parseMoney(input.value) !== Number(input.dataset.originalValue || 0);
+    input.closest("[data-account-card]")?.classList.toggle("is-changed", changed);
+  }
+
+  function markRateChanged() {
+    const rate = $("#jpyRate");
+    if (!rate) return;
+    rate.closest(".field-card")?.classList.toggle("is-changed", Math.abs(Number(rate.value) - Number(rate.defaultValue)) > .0000001);
   }
 
   function parseMoney(value) {
@@ -431,7 +446,7 @@
       <main>${snapshots.length ? `<section class="chart-panel"><div class="chart-title">總資產變化</div><div class="chart-big privacy-value ${privacyHidden ? "is-hidden" : ""}">${formatTwd(grandTotal(latest))}</div>${historyChart(snapshots)}
       <div class="delta privacy-value ${privacyHidden ? "is-hidden" : ""} ${changeAmount >= 0 ? "positive" : "negative"}">自第一筆紀錄 ${changeSign}${changeAmountText}（${changePercentText}）</div></section>
       <div class="section-head"><h2>每次紀錄</h2><span class="section-note">最新在前</span></div>
-      <section class="settings-group history-list">${[...snapshots].reverse().map(snapshot => `<div class="history-row"><div><div class="history-date">${formatDate(snapshot.date)}</div><div class="history-rate">日圓匯率 ${Number(snapshot.jpyRate).toFixed(3)}</div></div><div class="history-total privacy-value ${privacyHidden ? "is-hidden" : ""}">${formatTwd(grandTotal(snapshot))}</div></div>`).join("")}</section>` : '<div class="empty"><strong>還沒有歷史紀錄</strong>完成第一次更新後，這裡會出現資產趨勢。</div>'}</main>${nav("history")}`;
+      <section class="settings-group history-list">${[...snapshots].reverse().map(snapshot => `<div class="history-row"><div><div class="history-date">${formatDate(snapshot.date)}</div><div class="history-rate privacy-value ${privacyHidden ? "is-hidden" : ""}">日圓匯率 ${Number(snapshot.jpyRate).toFixed(3)}</div></div><div class="history-total privacy-value ${privacyHidden ? "is-hidden" : ""}">${formatTwd(grandTotal(snapshot))}</div></div>`).join("")}</section>` : '<div class="empty"><strong>還沒有歷史紀錄</strong>完成第一次更新後，這裡會出現資產趨勢。</div>'}</main>${nav("history")}`;
     bindCommon();
   }
 
@@ -450,7 +465,7 @@
     }).join("");
     const points = snapshots.map((snapshot, i) => `<circle cx="${x(i)}" cy="${y(values[i])}" r="5" fill="var(--surface)" stroke="var(--teal)" stroke-width="3"><title>${formatDate(snapshot.date)} ${formatTwd(values[i])}</title></circle>`).join("");
     const labels = snapshots.length <= 6 ? snapshots.map((snapshot, i) => `<text x="${x(i)}" y="${height-10}" text-anchor="middle" fill="var(--muted)" font-size="12">${Number(snapshot.date.slice(5,7))}月</text>`).join("") : `<text x="${left}" y="${height-10}" fill="var(--muted)" font-size="12">${snapshots[0].date.slice(0,7)}</text><text x="${width-right}" y="${height-10}" text-anchor="end" fill="var(--muted)" font-size="12">${snapshots.at(-1).date.slice(0,7)}</text>`;
-    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="總資產隨日期變化折線圖"><title>資產趨勢</title>${grid}<path d="${path}" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${points}${labels}</svg>`;
+    return `<svg class="privacy-chart ${privacyHidden ? "is-hidden" : ""}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${privacyHidden ? "資產趨勢已隱藏" : "總資產隨日期變化折線圖"}"><title>${privacyHidden ? "資產趨勢已隱藏" : "資產趨勢"}</title>${grid}<path d="${path}" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${points}${labels}</svg>`;
   }
 
   function renderSettings() {
@@ -666,7 +681,31 @@
     document.querySelectorAll("[data-category]").forEach(button => button.addEventListener("click", () => go(`category:${button.dataset.category}`)));
     document.querySelectorAll("[data-update-category]").forEach(button => button.addEventListener("click", () => go(`update:${button.dataset.updateCategory}`)));
     document.querySelectorAll("[data-back]").forEach(button => button.addEventListener("click", () => history.length > 1 ? history.back() : go("overview")));
-    document.querySelectorAll("[data-privacy]").forEach(button => button.addEventListener("click", () => { privacyHidden = !privacyHidden; render(); }));
+    document.querySelectorAll("[data-privacy]").forEach(button => button.addEventListener("click", togglePrivacy));
+  }
+
+  function togglePrivacy() {
+    const draftInputs = [...document.querySelectorAll("[data-account-input]")].map(input => ({
+      id: input.dataset.accountInput,
+      value: input.value,
+      changed: input.closest("[data-account-card]")?.classList.contains("is-changed")
+    }));
+    const draftDate = $("#recordDate")?.value;
+    const draftRate = $("#jpyRate")?.value;
+    const rateChanged = $("#jpyRate")?.closest(".field-card")?.classList.contains("is-changed");
+    privacyHidden = !privacyHidden;
+    render();
+    if (!draftInputs.length) return;
+    if ($("#recordDate")) $("#recordDate").value = draftDate;
+    if ($("#jpyRate")) $("#jpyRate").value = draftRate;
+    draftInputs.forEach(draft => {
+      const input = document.querySelector(`[data-account-input="${draft.id}"]`);
+      if (!input) return;
+      input.value = draft.value;
+      input.closest("[data-account-card]")?.classList.toggle("is-changed", draft.changed);
+    });
+    $("#jpyRate")?.closest(".field-card")?.classList.toggle("is-changed", rateChanged);
+    updateConversions();
   }
 
   function go(route) { location.hash = route; if (location.hash.slice(1) === route) render(); }

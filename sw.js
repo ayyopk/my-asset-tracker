@@ -1,7 +1,7 @@
-const CACHE = "asset-tracker-v3-3-history-delta";
+const CACHE = "asset-tracker-v3-4-privacy-edit-pwa";
 const ASSETS = [
-  "./", "./index.html", "./app.css?v=3.3", "./app.js?v=3.3", "./manifest.webmanifest?v=3.3",
-  "./vendor/xlsx.full.min.js?v=3.3", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
+  "./", "./index.html", "./app.css?v=3.4", "./app.js?v=3.4", "./manifest.webmanifest?v=3.4",
+  "./vendor/xlsx.full.min.js?v=3.4", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
 ];
 
 self.addEventListener("install", event => {
