@@ -135,6 +135,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .settings-action strong { display: block; }
 .settings-action small { display: block; color: var(--muted); margin-top: 3px; }
 .settings-action.danger { color: var(--danger); }
+.settings-action > svg, .settings-symbol svg { width: 22px; height: 22px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.settings-symbol { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 14px; display: grid; place-items: center; }
+.settings-symbol.safe { color: var(--teal); background: var(--teal-soft); }
+.settings-symbol.danger { color: var(--danger); background: var(--terracotta-soft); }
+.settings-symbol svg { width: 21px; height: 21px; }
 .account-manage-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 13px 15px; border-bottom: 1px solid var(--line); }
 .account-manage-row:last-child { border-bottom: 0; }
 .mini-btn { border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 11px; min-height: 36px; padding: 7px 11px; cursor: pointer; }

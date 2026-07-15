@@ -7,7 +7,7 @@
   const DATA_KEY = "main";
   const VAULT_KEY = "vault";
   const KDF_ITERATIONS = 310000;
-  const APP_VERSION = "3.5.0";
+  const APP_VERSION = "3.5.1";
 
   const categories = {
     taiwan: { name: "台灣資產", short: "台灣", icon: "taiwan", tone: "c1" },
@@ -195,6 +195,7 @@
       settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
       eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/>',
       eyeoff: '<path d="m3 3 18 18M10.6 10.7a2 2 0 0 0 2.7 2.7M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a16 16 0 0 1-2.1 3M6.6 6.7C3.5 8.6 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4.1-.8"/>',
+      lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/>',
       bank: '<path d="M3 10h18M5 10v8m4-8v8m6-8v8m4-8v8M2 21h20M12 3 3 7h18Z"/>',
       taiwan: '<path d="M14.5 2.5c2 2 2.2 4.4.8 6.2-1 1.3-1.1 2.2-.3 3.6.8 1.5.5 3.1-.9 4.1-1.4 1-1.8 2.5-1.3 4.1-2.3.2-4.1-.8-4.7-2.6-.5-1.4-1.8-2.1-3.3-2.2.7-2.2 1.8-3.9 3.3-5.1 1.5-1.2 2.2-2.9 2.2-5.1Z"/>',
       retirement: '<path d="M4 10h16v10H4zM7 10V7a5 5 0 0 1 10 0v3M8 14h8M8 17h5"/>',
@@ -600,7 +601,7 @@
       <main><div class="section-head"><h2>安全性</h2></div>
       <section class="settings-group">
         <button class="settings-action" id="changePassword"><span><strong>變更開啟密碼</strong><small>會以新密碼重新加密手機內資料</small></span><span class="chev">›</span></button>
-        <button class="settings-action" id="lockNow"><span><strong>立即鎖定</strong><small>下次查看需重新輸入密碼</small></span>${icon("eyeoff")}</button>
+        <button class="settings-action" id="lockNow"><span><strong>立即鎖定</strong><small>下次查看需重新輸入密碼</small></span><span class="settings-symbol safe">${icon("lock")}</span></button>
       </section>
       <div class="section-head"><h2>資產項目</h2><span class="section-note">${activeAccounts().length} 個</span></div>
       <section class="settings-group">${activeAccounts().map(account => `<div class="account-manage-row"><div><strong>${escapeHTML(account.name)}</strong><small>${categories[account.category]?.name || account.category} · ${account.currency}</small></div><button class="mini-btn" data-edit-account="${account.id}">編輯</button></div>`).join("")}</section>
@@ -613,7 +614,7 @@
         <button class="settings-action" id="exportExcel"><span><strong>匯出 Excel</strong><small>方便分析，但 Excel 檔本身沒有加密</small></span>${icon("download")}</button>
       </section>
       <div class="warning-box">移除 App、清除 Safari 網站資料或更換手機，都可能讓本機紀錄消失。建議每次更新後保存一份加密備份到 iCloud Drive、Google Drive 或 Dropbox。</div>
-      <div class="section-head"><h2>資料管理</h2></div><section class="settings-group"><button class="settings-action danger" id="resetData"><span><strong>清除所有資料</strong><small>帳戶與歷史紀錄都會移除</small></span>${icon("trash")}</button></section>
+      <div class="section-head"><h2>資料管理</h2></div><section class="settings-group"><button class="settings-action danger" id="resetData"><span><strong>清除所有資料</strong><small>帳戶、資產歷史與薪資紀錄都會移除</small></span><span class="settings-symbol danger">${icon("trash")}</span></button></section>
       </main>${nav("settings")}`;
     bindCommon();
     $("#changePassword").addEventListener("click", openChangePasswordSheet);
