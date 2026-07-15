@@ -7,7 +7,7 @@
   const DATA_KEY = "main";
   const VAULT_KEY = "vault";
   const KDF_ITERATIONS = 310000;
-  const APP_VERSION = "3.4.0";
+  const APP_VERSION = "3.5.0";
 
   const categories = {
     taiwan: { name: "台灣資產", short: "台灣", icon: "taiwan", tone: "c1" },
@@ -33,7 +33,8 @@
       version: 1,
       settings: { baseCurrency: "TWD", lastBackupAt: null, backupAfterSave: true },
       accounts: [],
-      snapshots: []
+      snapshots: [],
+      salaries: []
     };
   }
 
@@ -190,6 +191,7 @@
       home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V21h13V10.5M9.5 21v-6h5v6"/>',
       edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
       history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      salary: '<path d="M4 19V9m5 10V5m5 14v-7m5 7V3"/><path d="M2 21h20"/>',
       settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
       eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/>',
       eyeoff: '<path d="m3 3 18 18M10.6 10.7a2 2 0 0 0 2.7 2.7M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a16 16 0 0 1-2.1 3M6.6 6.7C3.5 8.6 2 12 2 12s3.5 7 10 7a10 10 0 0 0 4.1-.8"/>',
@@ -213,6 +215,7 @@
     normalized.settings.baseCurrency ||= "TWD";
     normalized.settings.lastBackupAt ||= null;
     if (typeof normalized.settings.backupAfterSave !== "boolean") normalized.settings.backupAfterSave = true;
+    if (!Array.isArray(normalized.salaries)) normalized.salaries = [];
     // 富邦外幣仍在台灣帳戶中，因此歸入台灣資產；既有歷史金額不會改變。
     normalized.accounts.forEach(account => {
       if (account.id === "jp-fubon" || account.name?.trim() === "富邦外幣") account.category = "taiwan";
@@ -266,7 +269,7 @@
     $("#authSubmit").addEventListener("click", submit);
     $("#vaultPassword").addEventListener("keydown", event => { if (event.key === "Enter" && !creating) submit(); });
     if (creating) $("#vaultPasswordAgain").addEventListener("keydown", event => { if (event.key === "Enter") submit(); });
-    setTimeout(() => $("#vaultPassword").focus(), 80);
+    setTimeout(() => $("#vaultPassword")?.focus(), 80);
   }
 
   function lockApp() {
@@ -281,6 +284,7 @@
     return `<nav class="bottom-nav" aria-label="主要功能">
       ${navButton("overview", "總覽", "home", active)}
       ${navButton("update", "更新", "edit", active)}
+      ${navButton("salary", "薪資", "salary", active)}
       ${navButton("history", "歷史", "history", active)}
       ${navButton("settings", "設定", "settings", active)}
     </nav>`;
@@ -468,6 +472,128 @@
     return `<svg class="privacy-chart ${privacyHidden ? "is-hidden" : ""}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${privacyHidden ? "資產趨勢已隱藏" : "總資產隨日期變化折線圖"}"><title>${privacyHidden ? "資產趨勢已隱藏" : "資產趨勢"}</title>${grid}<path d="${path}" fill="none" stroke="var(--teal)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${points}${labels}</svg>`;
   }
 
+  function sortedSalaries() {
+    return [...data.salaries].sort((a, b) => a.effectiveMonth.localeCompare(b.effectiveMonth));
+  }
+
+  function salaryPeriodLabel(effectiveMonth) {
+    const [year, month] = String(effectiveMonth || "").split("-").map(Number);
+    if (!year) return "未命名期間";
+    return month === 1 ? `${year}年` : `${year}年${month}月後`;
+  }
+
+  function salaryMoney(value, currency) {
+    return `${currency === "JPY" ? "¥" : "NT$"}${Math.round(Number(value || 0)).toLocaleString("zh-TW")}`;
+  }
+
+  function salaryCombinedTwd(record, rate = record?.jpyRate) {
+    return Number(record?.taiwanGross || 0) + Number(record?.japanGross || 0) * Number(rate || 0);
+  }
+
+  function salaryCombinedJpy(record, rate = record?.jpyRate) {
+    return Number(record?.japanGross || 0) + Number(record?.taiwanGross || 0) / Number(rate || 1);
+  }
+
+  function renderSalary(selectedId) {
+    const records = sortedSalaries();
+    const selected = records.find(item => item.id === selectedId) || records.at(-1);
+    if (!selected) {
+      app.innerHTML = `${topbar("我的薪資", "用時間感受收入，也記錄每年的成長", false)}
+        <main><div class="empty salary-empty"><strong>還沒有薪資紀錄</strong>新增第一筆年度薪資後，這裡會自動計算台灣與日本的稅後時薪。</div>
+        <div class="button-grid"><button class="primary-btn" id="addSalary">${icon("plus")}新增年度薪資</button></div></main>${nav("salary")}`;
+      bindCommon();
+      $("#addSalary").addEventListener("click", () => openSalarySheet());
+      return;
+    }
+
+    const currentIndex = records.findIndex(item => item.id === selected.id);
+    const previous = currentIndex > 0 ? records[currentIndex - 1] : null;
+    const workDays = Number(selected.workDays || 22);
+    const hoursPerDay = Number(selected.hoursPerDay || 8);
+    const twDay = Number(selected.taiwanNet || 0) / workDays;
+    const jpDay = Number(selected.japanNet || 0) / workDays;
+    const twHour = twDay / hoursPerDay;
+    const jpHour = jpDay / hoursPerDay;
+    const twDeduction = Number(selected.taiwanGross) - Number(selected.taiwanNet);
+    const jpDeduction = Number(selected.japanGross) - Number(selected.japanNet);
+    const twRatio = Number(selected.taiwanGross) ? Number(selected.taiwanNet) / Number(selected.taiwanGross) * 100 : 0;
+    const jpRatio = Number(selected.japanGross) ? Number(selected.japanNet) / Number(selected.japanGross) * 100 : 0;
+    const totalTwd = salaryCombinedTwd(selected);
+    const totalJpy = salaryCombinedJpy(selected);
+    const previousAtCurrentRate = previous ? salaryCombinedTwd(previous, selected.jpyRate) : null;
+    const growthAmount = previousAtCurrentRate == null ? null : totalTwd - previousAtCurrentRate;
+    const growthPercent = previousAtCurrentRate ? growthAmount / previousAtCurrentRate * 100 : null;
+    const hidden = privacyHidden ? "is-hidden" : "";
+    const growthText = growthPercent == null ? "第一筆薪資紀錄" : `${growthAmount >= 0 ? "+" : "−"}${Math.abs(growthPercent).toFixed(2)}%`;
+
+    const detailCard = (region, tone, gross, net, deduction, ratio) => `<section class="salary-detail ${tone}">
+      <div class="salary-detail-head"><span class="salary-region-badge">${region === "台灣" ? "台" : "日"}</span><div><h3>${region}薪資</h3><p>實領比例 <span class="privacy-value ${hidden}">${ratio.toFixed(1)}%</span></p></div></div>
+      <div class="salary-detail-grid">
+        <div><span>稅前月薪</span><strong class="privacy-value ${hidden}">${salaryMoney(gross, region === "台灣" ? "TWD" : "JPY")}</strong></div>
+        <div><span>稅後實領</span><strong class="positive privacy-value ${hidden}">${salaryMoney(net, region === "台灣" ? "TWD" : "JPY")}</strong></div>
+        <div><span>扣除金額</span><strong class="negative privacy-value ${hidden}">${salaryMoney(deduction, region === "台灣" ? "TWD" : "JPY")}</strong></div>
+      </div></section>`;
+
+    app.innerHTML = `${topbar("我的薪資", "用時間感受收入，也記錄每年的成長", false)}
+      <main>
+        <div class="salary-toolbar"><label for="salaryPeriodSelect">顯示期間</label><select id="salaryPeriodSelect">${[...records].reverse().map(record => `<option value="${record.id}" ${record.id === selected.id ? "selected" : ""}>${salaryPeriodLabel(record.effectiveMonth)}</option>`).join("")}</select></div>
+        <section class="salary-hourly-hero">
+          <div class="salary-hero-label">現在的時間價值</div><div class="salary-hero-note">依每月 ${workDays} 天、每日 ${hoursPerDay} 小時計算</div>
+          <div class="salary-hourly-grid"><div><span class="salary-region-badge">台</span><h3>台灣・稅後時薪</h3><strong class="privacy-value ${hidden}">${salaryMoney(twHour, "TWD")}</strong><small class="privacy-value ${hidden}">一天約 ${salaryMoney(twDay, "TWD")}</small></div>
+          <div><span class="salary-region-badge japan">日</span><h3>日本・稅後時薪</h3><strong class="privacy-value ${hidden}">${salaryMoney(jpHour, "JPY")}</strong><small class="privacy-value ${hidden}">一天約 ${salaryMoney(jpDay, "JPY")}</small></div></div>
+        </section>
+        <div class="section-head"><h2>兩地稅前總薪資</h2><span class="section-note privacy-value ${hidden}">1 JPY＝NT$${Number(selected.jpyRate).toFixed(4)}</span></div>
+        <section class="salary-total-card"><div><span>換算成台幣</span><strong class="privacy-value ${hidden}">${salaryMoney(totalTwd, "TWD")}</strong><small class="${growthAmount == null || growthAmount >= 0 ? "positive" : "negative"} privacy-value ${hidden}">${growthText}</small></div><div><span>換算成日幣</span><strong class="privacy-value ${hidden}">${salaryMoney(totalJpy, "JPY")}</strong>${growthAmount != null ? `<small class="${growthAmount >= 0 ? "positive" : "negative"} privacy-value ${hidden}">${growthAmount >= 0 ? "增加" : "減少"} ${salaryMoney(Math.abs(totalJpy - salaryCombinedJpy(previous, selected.jpyRate)), "JPY")}</small>` : ""}</div></section>
+        <div class="section-head"><h2>各地薪資明細</h2><span class="section-note">月薪</span></div>
+        <div class="salary-details">${detailCard("台灣", "taiwan", selected.taiwanGross, selected.taiwanNet, twDeduction, twRatio)}${detailCard("日本", "japan", selected.japanGross, selected.japanNet, jpDeduction, jpRatio)}</div>
+        <div class="button-grid two"><button class="secondary-btn" id="editSalary">${icon("edit")}修改這筆</button><button class="primary-btn" id="addSalary">${icon("plus")}新增年度薪資</button></div>
+      </main>${nav("salary")}`;
+    bindCommon();
+    $("#salaryPeriodSelect").addEventListener("change", event => go(`salary:${event.target.value}`));
+    $("#editSalary").addEventListener("click", () => openSalarySheet(selected.id));
+    $("#addSalary").addEventListener("click", () => openSalarySheet());
+  }
+
+  function openSalarySheet(recordId) {
+    const record = data.salaries.find(item => item.id === recordId);
+    const wrap = document.createElement("div");
+    wrap.className = "modal-backdrop";
+    const field = (id, label, value, options = "") => `<div class="field-card"><label for="${id}">${label}</label><input id="${id}" ${options} value="${escapeHTML(value ?? "")}"></div>`;
+    wrap.innerHTML = `<section class="sheet" role="dialog" aria-modal="true" aria-labelledby="salarySheetTitle"><div class="sheet-handle"></div><h2 id="salarySheetTitle">${record ? "修改薪資紀錄" : "新增年度薪資"}</h2>
+      <div class="info-box">台灣與日本薪資分開計稅。輸入稅前、稅後及換算匯率後，扣除金額、實領比例、日薪與時薪會自動計算。</div>
+      <div class="form-grid salary-form">${field("salaryMonth", "適用起始月份", record?.effectiveMonth || `${new Date().getFullYear()}-01`, 'type="month"')}${field("salaryRate", "日圓匯率（JPY→TWD）", record?.jpyRate || "0.205", 'type="number" inputmode="decimal" min="0" step="0.0001"')}
+      ${field("salaryWorkDays", "每月工作天數", record?.workDays || 22, 'type="number" inputmode="numeric" min="1" step="1"')}${field("salaryHours", "每日工時", record?.hoursPerDay || 8, 'type="number" inputmode="decimal" min="1" step="0.5"')}</div>
+      <div class="category-divider">台灣月薪（TWD）</div><div class="form-grid salary-form">${field("salaryTwGross", "稅前月薪", record?.taiwanGross || "", 'type="number" inputmode="numeric" min="0" step="1"')}${field("salaryTwNet", "稅後／實領", record?.taiwanNet || "", 'type="number" inputmode="numeric" min="0" step="1"')}</div>
+      <div class="category-divider">日本月薪（JPY）</div><div class="form-grid salary-form">${field("salaryJpGross", "稅前月薪", record?.japanGross || "", 'type="number" inputmode="numeric" min="0" step="1"')}${field("salaryJpNet", "稅後／實領", record?.japanNet || "", 'type="number" inputmode="numeric" min="0" step="1"')}</div>
+      <div class="sheet-actions"><button class="primary-btn" id="saveSalary">儲存薪資紀錄</button>${record ? '<button class="danger-btn" id="deleteSalary">刪除這筆紀錄</button>' : ""}<button class="secondary-btn" id="closeSalarySheet">取消</button></div></section>`;
+    document.body.appendChild(wrap);
+    $("#closeSalarySheet").addEventListener("click", () => wrap.remove());
+    wrap.addEventListener("click", event => { if (event.target === wrap) wrap.remove(); });
+    $("#saveSalary").addEventListener("click", async () => {
+      const effectiveMonth = $("#salaryMonth").value;
+      const values = {
+        jpyRate: Number($("#salaryRate").value), workDays: Number($("#salaryWorkDays").value), hoursPerDay: Number($("#salaryHours").value),
+        taiwanGross: Number($("#salaryTwGross").value), taiwanNet: Number($("#salaryTwNet").value), japanGross: Number($("#salaryJpGross").value), japanNet: Number($("#salaryJpNet").value)
+      };
+      if (!effectiveMonth) return showToast("請選擇適用月份");
+      if (!values.jpyRate || !values.workDays || !values.hoursPerDay) return showToast("請輸入正確的匯率、工作天數及工時");
+      if (![values.taiwanGross, values.taiwanNet, values.japanGross, values.japanNet].every(value => Number.isFinite(value) && value >= 0)) return showToast("請輸入正確的薪資金額");
+      if (values.taiwanNet > values.taiwanGross || values.japanNet > values.japanGross) return showToast("稅後實領不可高於稅前月薪");
+      const samePeriod = data.salaries.find(item => item.effectiveMonth === effectiveMonth && item.id !== recordId);
+      if (samePeriod && !confirm(`${salaryPeriodLabel(effectiveMonth)}已有紀錄，要以這次輸入取代嗎？`)) return;
+      const target = record || samePeriod || { id: `salary-${Date.now()}`, createdAt: new Date().toISOString() };
+      Object.assign(target, values, { effectiveMonth, updatedAt: new Date().toISOString() });
+      if (!record && !samePeriod) data.salaries.push(target);
+      await persist(); wrap.remove(); showToast("薪資紀錄已儲存");
+      const nextRoute = `salary:${target.id}`;
+      if (data.settings.backupAfterSave) openPostSaveBackupSheet(nextRoute); else go(nextRoute);
+    });
+    if (record) $("#deleteSalary").addEventListener("click", async () => {
+      if (!confirm(`確定刪除「${salaryPeriodLabel(record.effectiveMonth)}」薪資紀錄嗎？`)) return;
+      data.salaries = data.salaries.filter(item => item.id !== record.id); await persist(); wrap.remove(); go("salary"); showToast("薪資紀錄已刪除");
+    });
+  }
+
   function renderSettings() {
     const backupText = data.settings.lastBackupAt ? new Date(data.settings.lastBackupAt).toLocaleString("zh-TW") : "尚未備份";
     app.innerHTML = `${topbar("設定與備份", "資料只保存在此裝置，請定期備份", false)}
@@ -524,7 +650,7 @@
       if (!confirm(`確定停用「${account.name}」嗎？過去紀錄仍會保留在備份及 Excel 中。`)) return;
       account.active = false; await persist(); wrap.remove(); renderSettings(); showToast("項目已停用");
     });
-    setTimeout(() => $("#accountName").focus(), 80);
+    setTimeout(() => $("#accountName")?.focus(), 80);
   }
 
   function openChangePasswordSheet() {
@@ -560,7 +686,7 @@
         $("#saveNewPassword").textContent = "變更密碼";
       }
     });
-    setTimeout(() => $("#newVaultPassword").focus(), 80);
+    setTimeout(() => $("#newVaultPassword")?.focus(), 80);
   }
 
   function openPostSaveBackupSheet(nextRoute) {
@@ -660,18 +786,32 @@
       原始幣別: account.currency, 原始金額: Number(snapshot.values?.[account.id] || 0), 日圓匯率: snapshot.jpyRate,
       換算台幣: Math.round(accountTwd(account, snapshot)), 狀態: account.active === false ? "已停用" : "使用中"
     })));
+    const salaryRows = sortedSalaries().map(record => {
+      const days = Number(record.workDays || 22), hours = Number(record.hoursPerDay || 8);
+      return {
+        適用期間: salaryPeriodLabel(record.effectiveMonth), 起始月份: record.effectiveMonth, 日圓匯率: record.jpyRate,
+        台灣稅前月薪_TWD: record.taiwanGross, 台灣稅後月薪_TWD: record.taiwanNet,
+        台灣扣除金額_TWD: record.taiwanGross - record.taiwanNet, 台灣實領比例: record.taiwanGross ? record.taiwanNet / record.taiwanGross : 0,
+        台灣稅後日薪_TWD: record.taiwanNet / days, 台灣稅後時薪_TWD: record.taiwanNet / days / hours,
+        日本稅前月薪_JPY: record.japanGross, 日本稅後月薪_JPY: record.japanNet,
+        日本扣除金額_JPY: record.japanGross - record.japanNet, 日本實領比例: record.japanGross ? record.japanNet / record.japanGross : 0,
+        日本稅後日薪_JPY: record.japanNet / days, 日本稅後時薪_JPY: record.japanNet / days / hours,
+        兩地稅前合計_TWD: salaryCombinedTwd(record), 兩地稅前合計_JPY: salaryCombinedJpy(record), 每月工作天數: days, 每日工時: hours
+      };
+    });
     const wb = XLSX.utils.book_new();
-    const ws1 = XLSX.utils.json_to_sheet(overview); const ws2 = XLSX.utils.json_to_sheet(details);
+    const ws1 = XLSX.utils.json_to_sheet(overview); const ws2 = XLSX.utils.json_to_sheet(details); const ws3 = XLSX.utils.json_to_sheet(salaryRows);
     ws1["!cols"] = [{wch:12},{wch:11},{wch:17},{wch:17},{wch:17},{wch:22},{wch:17}];
     ws2["!cols"] = [{wch:12},{wch:18},{wch:24},{wch:12},{wch:15},{wch:11},{wch:15},{wch:10}];
-    XLSX.utils.book_append_sheet(wb, ws1, "資產總覽"); XLSX.utils.book_append_sheet(wb, ws2, "帳戶明細");
+    ws3["!cols"] = Array.from({ length: 19 }, (_, index) => ({ wch: index < 3 ? 15 : 21 }));
+    XLSX.utils.book_append_sheet(wb, ws1, "資產總覽"); XLSX.utils.book_append_sheet(wb, ws2, "帳戶明細"); XLSX.utils.book_append_sheet(wb, ws3, "薪資紀錄");
     const array = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const file = makeFile(array, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", `我的資產_${dateToday().replaceAll("-", "")}.xlsx`);
     if (await shareOrDownload(file, "我的資產 Excel")) showToast("Excel 已產生");
   }
 
   async function resetData() {
-    if (!confirm("這會清除所有帳戶與歷史紀錄，確定繼續嗎？")) return;
+    if (!confirm("這會清除所有帳戶、資產歷史與薪資紀錄，確定繼續嗎？")) return;
     if (!confirm("請再次確認：尚未備份的資料將無法恢復。")) return;
     data = seedData(); await persist(); go("overview"); showToast("所有資料已清除");
   }
@@ -718,6 +858,7 @@
     if (page === "overview") renderOverview();
     else if (page === "category") renderCategory(param);
     else if (page === "update") renderUpdate(param);
+    else if (page === "salary") renderSalary(param);
     else if (page === "history") renderHistory();
     else if (page === "settings") renderSettings();
     else go("overview");

@@ -1,7 +1,7 @@
-const CACHE = "asset-tracker-v3-4-privacy-edit-pwa";
+const CACHE = "asset-tracker-v3-5-salary-palette";
 const ASSETS = [
-  "./", "./index.html", "./app.css?v=3.4", "./app.js?v=3.4", "./manifest.webmanifest?v=3.4",
-  "./vendor/xlsx.full.min.js?v=3.4", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
+  "./", "./index.html", "./app.css?v=3.5", "./app.js?v=3.5", "./manifest.webmanifest?v=3.5",
+  "./vendor/xlsx.full.min.js?v=3.5", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
 ];
 
 self.addEventListener("install", event => {
